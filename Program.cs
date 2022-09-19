@@ -21,6 +21,11 @@ namespace testWait
         public double ExceptionAfter { get => CancelExceptionTime != null ? (CancelExceptionTime.Value - StartTime).TotalSeconds : -1.0; }
 
         public override string ToString() => $"{Id},{StartTime},{TotalDuration},{TriggeredAfter},{ExceptionAfter},{CancelledBeforeStart}";
+        public string ReportCancel(DateTime cancelTime)
+        {
+            var t = CancelTriggerTime != null ? (CancelTriggerTime.Value - cancelTime).TotalSeconds : -1.0;
+            return $"{Id} cancel delegate called {t}s after cts.Cancel() was called";
+        }
     }
     internal class Program
     {
@@ -30,7 +35,7 @@ namespace testWait
             // RUN CONFIGURATION
             // set induceIssue to true to observe excessive delay.  Set to false to observe expected behaviors
             bool induceIssue = true;
-            int taskDelayMs = 20000;    // Task.DelayAsync for 20 seconds
+            int taskDelayMs = 30000;    // Task.DelayAsync for 20 seconds
             //////////////////////////////////////////////////////
 
             // Hold results from all calls.  Outer Main has Id=-1
@@ -64,10 +69,11 @@ namespace testWait
             //cts.CancelAfter(200);
 
             // wait 100ms to trigger the cancellation so that we have a chance to enter into the Task.Delay(...) calls
+            DateTime cancelStart = DateTime.MinValue;
             var triggerTask = Task.Run(async () =>
             {
                 await Task.Delay(100);
-                DateTime cancelStart = DateTime.Now;
+                cancelStart = DateTime.Now;
                 var triggerTime = (cancelStart - start).TotalSeconds;
                 Console.WriteLine($"Cancelling work after {triggerTime}s");
                 cts.Cancel();
@@ -107,7 +113,8 @@ namespace testWait
             // sort the events by when the cancellation token was triggered
             foreach (var e in Events.OrderBy(e => e.TriggeredAfter).ToList())
             {
-                sb.AppendLine(e.ToString());
+                //sb.AppendLine(e.ToString());
+                sb.AppendLine(e.ReportCancel(cancelStart));
             }
 
             #endregion
